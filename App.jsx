@@ -11,24 +11,26 @@ export default function PainelEsportivo() {
   const [aba, setAba] = useState("futebol");
   const [dados, setDados] = useState([]);
 
-  async function buscarFutebolAoVivo() {
-    const response = await fetch(`${BASE_URL}/fixtures?live=all`, {
+  function getHojeFormatoISO() {
+    const hoje = new Date();
+    return hoje.toISOString().split("T")[0];
+  }
+
+  async function buscarFutebolDia() {
+    const hoje = getHojeFormatoISO();
+    const response = await fetch(`${BASE_URL}/fixtures?date=${hoje}`, {
       headers: {
         "x-apisports-key": API_KEY,
       },
     });
     const data = await response.json();
-    const ligasPermitidas = [2, 3, 39, 61, 78, 135, 140, 94, 203, 848, 4, 5, 6, 7, 1, 15, 132];
-    const jogosFiltrados = data.response.filter((jogo) =>
-      ligasPermitidas.includes(jogo.league.id)
-    );
-    return jogosFiltrados.map((jogo) => ({
+    return data.response.map((jogo) => ({
       timeCasa: { nome: jogo.teams.home.name, escudo: jogo.teams.home.logo },
       timeFora: { nome: jogo.teams.away.name, escudo: jogo.teams.away.logo },
-      placarCasa: jogo.goals.home,
-      placarFora: jogo.goals.away,
+      placarCasa: jogo.goals.home ?? "-",
+      placarFora: jogo.goals.away ?? "-",
       campeonato: jogo.league.name,
-      tempo: jogo.fixture.status.elapsed + "'",
+      tempo: jogo.fixture.status.short,
     }));
   }
 
@@ -63,9 +65,13 @@ export default function PainelEsportivo() {
   }
 
   async function carregarDados() {
-    if (aba === "futebol") setDados(await buscarFutebolAoVivo());
-    else if (aba === "nba") setDados(await buscarNBAAoVivo());
-    else if (aba === "nfl") setDados(await buscarNFLAoVivo());
+    if (aba === "futebol") {
+      setDados(await buscarFutebolDia());
+    } else if (aba === "nba") {
+      setDados(await buscarNBAAoVivo());
+    } else if (aba === "nfl") {
+      setDados(await buscarNFLAoVivo());
+    }
   }
 
   useEffect(() => {
@@ -73,7 +79,7 @@ export default function PainelEsportivo() {
     const audio = new Audio("/sons/gol.mp3");
     const intervalo = setInterval(async () => {
       const novosDados = await (aba === "futebol"
-        ? buscarFutebolAoVivo()
+        ? buscarFutebolDia()
         : aba === "nba"
         ? buscarNBAAoVivo()
         : buscarNFLAoVivo());
@@ -94,7 +100,7 @@ export default function PainelEsportivo() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {dados.length === 0 ? (
-          <p className="text-center col-span-full">Nenhum jogo ao vivo no momento.</p>
+          <p className="text-center col-span-full">Nenhum jogo encontrado para hoje.</p>
         ) : (
           dados.map((jogo, i) => (
             <Card key={i} className="rounded-2xl shadow-md">
